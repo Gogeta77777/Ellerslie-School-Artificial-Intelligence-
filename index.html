@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ellerslie School AI</title>
+  <style>
+    :root{
+      --bg:#0f1720;
+      --panel:#0b1220;
+      --muted:#94a3b8;
+      --accent:#7c3aed;
+      --user:#0ea5a4;
+      --assistant:#111827;
+      --white:#e6eef8;
+      --error:#ef4444;
+      --success:#10b981;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+    body{background:linear-gradient(180deg,var(--bg),#071021);color:var(--white);display:flex;align-items:center;justify-content:center;padding:12px}
+    
+    .container{width:900px;max-width:100%;display:flex;flex-direction:column}
+    
+    /* Auth screens */
+    .auth-screen{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.15));border-radius:12px;padding:40px;box-shadow:0 6px 30px rgba(2,6,23,0.7);display:flex;flex-direction:column;gap:24px;text-align:center}
+    .auth-screen h1{font-size:28px;margin:0;font-weight:700}
+    .auth-screen p{color:var(--muted);margin:0}
+    
+    .form-group{display:flex;flex-direction:column;gap:8px;text-align:left}
+    .form-group label{font-size:14px;font-weight:600;color:var(--white)}
+    .form-group input{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:10px 12px;border-radius:8px;color:var(--white);font-size:14px}
+    .form-group input::placeholder{color:var(--muted)}
+    .form-group input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(124,58,237,0.2)}
+    
+    .form{display:flex;flex-direction:column;gap:16px}
+    .btn{padding:12px 16px;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.2s}
+    .btn.primary{background:var(--accent);color:white}
+    .btn.primary:hover{opacity:0.9}
+    .btn.primary:disabled{opacity:0.5;cursor:not-allowed}
+    .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.1);color:var(--white)}
+    .btn.secondary:hover{background:rgba(255,255,255,0.05)}
+    
+    .form-footer{text-align:center;font-size:14px;color:var(--muted)}
+    .form-footer a{color:var(--accent);cursor:pointer;text-decoration:underline}
+    
+    .error-msg{color:var(--error);font-size:13px;margin:0}
+    .success-msg{color:var(--success);font-size:13px;margin:0}
+    
+    .toggle-form{display:flex;gap:8px;margin-top:12px}
+    .toggle-form button{flex:1}
+    
+    /* Chat screen */
+    .app{display:none;height:100vh;background:linear-gradient(180deg,var(--bg),#071021);grid-template-rows:auto 1fr auto;gap:12px;padding:18px;border-radius:12px;position:fixed;top:0;left:0;right:0;bottom:0;width:100%;max-width:none}
+    .app.active{display:grid}
+    
+    .header{display:flex;align-items:center;justify-content:space-between;padding:12px;gap:12px}
+    .brand{display:flex;align-items:center;gap:12px;flex:1}
+    .brand h1{font-size:18px;margin:0;font-weight:700}
+    .brand p{color:var(--muted);font-size:13px;margin:0}
+    .user-info{display:flex;align-items:center;gap:12px}
+    .user-name{font-size:14px;color:var(--white)}
+    .logout-btn{background:transparent;border:1px solid rgba(255,255,255,0.1);padding:8px 12px;border-radius:8px;color:var(--white);cursor:pointer;font-size:13px}
+    .logout-btn:hover{background:rgba(255,255,255,0.05)}
+    
+    .chat{background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);padding:14px;border-radius:10px;overflow-y:auto;overflow-x:hidden;flex:1}
+    .messages{display:flex;flex-direction:column;gap:12px}
+    .msg{max-width:78%;padding:10px 12px;border-radius:12px;line-height:1.5;word-wrap:break-word}
+    .msg.user{margin-left:auto;background:linear-gradient(90deg,var(--user),#06b6b4);color:#022;box-shadow:0 4px 14px rgba(14,165,164,0.12)}
+    .msg.assistant{background:linear-gradient(180deg,#0b1220,#0f1727);border:1px solid rgba(255,255,255,0.02);color:var(--white)}
+    .msg-meta{font-size:11px;color:var(--muted);margin-bottom:4px;opacity:0.7}
+    
+    .composer{display:flex;gap:8px;align-items:flex-end}
+    .input{flex:1;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;color:var(--white);min-height:44px;resize:none;font-family:inherit;font-size:14px}
+    .input:focus{outline:none;border-color:rgba(255,255,255,0.1)}
+    .input::placeholder{color:var(--muted)}
+    .send{background:var(--accent);border:none;padding:10px 14px;border-radius:10px;color:white;font-weight:600;cursor:pointer;font-size:13px}
+    .send[disabled]{opacity:0.5;cursor:not-allowed}
+    .send:hover:not([disabled]){opacity:0.9}
+    
+    .hidden{display:none}
+    .loading{opacity:0.6}
+    
+    @media (max-width:768px){
+      .auth-screen{padding:24px}
+      .auth-screen h1{font-size:22px}
+      .msg{max-width:90%}
+      .app{padding:12px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Login / Signup Screen -->
+    <div id="authScreen" class="auth-screen">
+      <div>
+        <h1>Ellerslie School AI</h1>
+        <p>Your intelligent study companion</p>
+      </div>
+      
+      <div id="loginForm" class="form">
+        <h2 style="font-size:18px;margin:0;margin-top:12px">Sign In</h2>
+        <div class="form-group">
+          <label>Email</label>
+          <input id="loginEmail" type="email" placeholder="your@school.email" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input id="loginPassword" type="password" placeholder="••••••••" />
+        </div>
+        <div id="loginError" class="error-msg hidden"></div>
+        <button id="loginBtn" class="btn primary" type="button">Sign In</button>
+        <div class="form-footer">
+          Don't have an account? <a id="showSignup">Sign up</a>
+        </div>
+      </div>
+      
+      <div id="signupForm" class="form hidden">
+        <h2 style="font-size:18px;margin:0;margin-top:12px">Create Account</h2>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input id="signupName" type="text" placeholder="Your Name" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input id="signupEmail" type="email" placeholder="your@school.email" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input id="signupPassword" type="password" placeholder="••••••••" />
+        </div>
+        <div class="form-group">
+          <label>Confirm Password</label>
+          <input id="signupPasswordConfirm" type="password" placeholder="••••••••" />
+        </div>
+        <div id="signupError" class="error-msg hidden"></div>
+        <div id="signupSuccess" class="success-msg hidden"></div>
+        <button id="signupBtn" class="btn primary" type="button">Create Account</button>
+        <div class="form-footer">
+          Already have an account? <a id="showLogin">Sign in</a>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Chat Screen -->
+    <div id="chatScreen" class="app">
+      <header class="header">
+        <div class="brand">
+          <h1>Ellerslie School AI</h1>
+          <p>Ask me anything about your schoolwork</p>
+        </div>
+        <div class="user-info">
+          <span id="userDisplay" class="user-name"></span>
+          <button id="logoutBtn" class="logout-btn">Logout</button>
+        </div>
+      </header>
+      
+      <section class="chat" id="chat">
+        <div class="messages" id="messages"></div>
+      </section>
+      
+      <form id="composer" class="composer" onsubmit="return false;">
+        <textarea id="input" class="input" rows="1" placeholder="Ask Ellerslie School AI..." aria-label="Message input"></textarea>
+        <button id="send" class="send" type="button">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ====== State ======
+    let authToken = null
+    let currentUser = null
+    const API_BASE = window.location.origin // Render will serve both frontend and API
+
+    // ====== Auth UI ======
+    function showAuth(){
+      document.getElementById('chatScreen').classList.remove('active')
+      document.getElementById('authScreen').style.display = 'flex'
+      authToken = null
+      currentUser = null
+    }
+
+    function showChat(){
+      document.getElementById('authScreen').style.display = 'none'
+      document.getElementById('chatScreen').classList.add('active')
+      addWelcomeMessage()
+    }
+
+    function toggleForms(){
+      document.getElementById('loginForm').classList.toggle('hidden')
+      document.getElementById('signupForm').classList.toggle('hidden')
+      clearErrors()
+    }
+
+    document.getElementById('showSignup').addEventListener('click', toggleForms)
+    document.getElementById('showLogin').addEventListener('click', toggleForms)
+
+    // ====== Login ======
+    document.getElementById('loginBtn').addEventListener('click', async ()=>{
+      const email = document.getElementById('loginEmail').value.trim()
+      const password = document.getElementById('loginPassword').value
+      const errEl = document.getElementById('loginError')
+      
+      if(!email || !password){
+        errEl.textContent = 'Please fill in all fields'
+        errEl.classList.remove('hidden')
+        return
+      }
+      
+      try{
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({email, password})
+        })
+        const data = await res.json()
+        if(!res.ok) throw new Error(data.error || 'Login failed')
+        
+        authToken = data.token
+        currentUser = data.user
+        document.getElementById('userDisplay').textContent = currentUser.name
+        showChat()
+      }catch(err){
+        errEl.textContent = err.message
+        errEl.classList.remove('hidden')
+      }
+    })
+
+    // ====== Signup ======
+    document.getElementById('signupBtn').addEventListener('click', async ()=>{
+      const name = document.getElementById('signupName').value.trim()
+      const email = document.getElementById('signupEmail').value.trim()
+      const password = document.getElementById('signupPassword').value
+      const confirmPassword = document.getElementById('signupPasswordConfirm').value
+      const errEl = document.getElementById('signupError')
+      const succEl = document.getElementById('signupSuccess')
+      
+      errEl.classList.add('hidden')
+      succEl.classList.add('hidden')
+      
+      if(!name || !email || !password || !confirmPassword){
+        errEl.textContent = 'Please fill in all fields'
+        errEl.classList.remove('hidden')
+        return
+      }
+      
+      if(password !== confirmPassword){
+        errEl.textContent = 'Passwords do not match'
+        errEl.classList.remove('hidden')
+        return
+      }
+      
+      if(password.length < 6){
+        errEl.textContent = 'Password must be at least 6 characters'
+        errEl.classList.remove('hidden')
+        return
+      }
+      
+      try{
+        const res = await fetch(`${API_BASE}/api/auth/signup`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name, email, password})
+        })
+        const data = await res.json()
+        if(!res.ok) throw new Error(data.error || 'Signup failed')
+        
+        succEl.textContent = 'Account created! Signing you in...'
+        succEl.classList.remove('hidden')
+        
+        authToken = data.token
+        currentUser = data.user
+        document.getElementById('userDisplay').textContent = currentUser.name
+        
+        setTimeout(showChat, 1000)
+      }catch(err){
+        errEl.textContent = err.message
+        errEl.classList.remove('hidden')
+      }
+    })
+
+    document.getElementById('logoutBtn').addEventListener('click', ()=>{
+      clearChatHistory()
+      showAuth()
+    })
+
+    function clearErrors(){
+      document.getElementById('loginError').classList.add('hidden')
+      document.getElementById('signupError').classList.add('hidden')
+      document.getElementById('signupSuccess').classList.add('hidden')
+    }
+
+    // ====== Chat ======
+    const messagesEl = document.getElementById('messages')
+    const inputEl = document.getElementById('input')
+    const sendBtn = document.getElementById('send')
+
+    function addMessage(role, text){
+      const wrap = document.createElement('div')
+      wrap.className = 'msg ' + role
+      const meta = document.createElement('div')
+      meta.className = 'msg-meta'
+      meta.textContent = role === 'user' ? 'You' : 'Ellerslie School AI'
+      const body = document.createElement('div')
+      body.textContent = text
+      wrap.appendChild(meta)
+      wrap.appendChild(body)
+      messagesEl.appendChild(wrap)
+      messagesEl.scrollTop = messagesEl.scrollHeight
+    }
+
+    function addWelcomeMessage(){
+      if(messagesEl.children.length === 0){
+        addMessage('assistant', `Hi ${currentUser.name}! I'm Ellerslie School AI. I can help you with homework, explain concepts, brainstorm ideas, and much more. What can I help you with today?`)
+      }
+    }
+
+    function setSending(isSending){
+      sendBtn.disabled = isSending
+      inputEl.disabled = isSending
+      sendBtn.textContent = isSending ? 'Thinking...' : 'Send'
+    }
+
+    async function sendMessage(){
+      const text = inputEl.value.trim()
+      if(!text) return
+      
+      addMessage('user', text)
+      inputEl.value = ''
+      setSending(true)
+
+      try{
+        const res = await fetch(`${API_BASE}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({message: text})
+        })
+        const data = await res.json()
+        if(!res.ok) throw new Error(data.error || 'Chat failed')
+        
+        addMessage('assistant', data.reply)
+      }catch(err){
+        addMessage('assistant', `Error: ${err.message}. Please try again.`)
+      }finally{
+        setSending(false)
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage)
+    inputEl.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' && !e.shiftKey){
+        e.preventDefault()
+        sendMessage()
+      }
+    })
+
+    function clearChatHistory(){
+      messagesEl.innerHTML = ''
+    }
+
+    // ====== Init ======
+    showAuth()
+  </script>
+</body>
+</html>
