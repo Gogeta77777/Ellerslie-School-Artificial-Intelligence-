@@ -1,0 +1,12 @@
+# Render Build Configuration
+# This ensures Render deploys correctly
+
+# Use Node.js 18.x
+runtime: node-18.17.0
+
+# Environment
+environments:
+  development:
+    NODE_ENV: development
+  production:
+    NODE_ENV: production
